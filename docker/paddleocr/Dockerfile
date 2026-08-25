@@ -20,10 +20,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libgomp1 libglib2.0-0 libgl1 curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 先装推理框架再装 OCR 与 serving 插件；-i 走清华镜像加速国内拉取
-RUN pip install --index-url https://pypi.tuna.tsinghua.edu.cn/simple paddlepaddle==3.0.0 \
-    && pip install --index-url https://pypi.tuna.tsinghua.edu.cn/simple paddleocr==3.0.0 \
-    && paddlex --install serving -y
+# 先装推理框架再装 OCR 与 serving 插件。
+# PaddlePaddle 的 CPU wheel 使用官方源；PaddleOCR/PaddleX 使用官方 PyPI 源。
+RUN python -m pip install --index-url https://www.paddlepaddle.org.cn/packages/stable/cpu/ paddlepaddle==3.0.0 \
+    && python -m pip install --index-url https://pypi.org/simple paddleocr==3.0.0 \
+    && PIP_INDEX_URL=https://pypi.org/simple paddlex --install serving
 
 EXPOSE 8080
 

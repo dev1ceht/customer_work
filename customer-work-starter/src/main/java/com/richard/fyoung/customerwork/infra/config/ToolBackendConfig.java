@@ -1,6 +1,8 @@
 package com.richard.fyoung.customerwork.infra.config;
 
+import com.richard.fyoung.customerwork.capability.approval.PendingApprovalService;
 import com.richard.fyoung.customerwork.core.constant.StoreModes;
+import com.richard.fyoung.customerwork.infra.transaction.CustomerWorkTransactionExecutor;
 import com.richard.fyoung.customerwork.tool.backend.AfterSalesBackend;
 import com.richard.fyoung.customerwork.tool.backend.ComplaintBackend;
 import com.richard.fyoung.customerwork.tool.backend.KnowledgeBackend;
@@ -19,6 +21,8 @@ import com.richard.fyoung.customerwork.tool.backend.MybatisOrderBackend;
 import com.richard.fyoung.customerwork.tool.backend.MybatisProductBackend;
 import com.richard.fyoung.customerwork.tool.backend.OrderBackend;
 import com.richard.fyoung.customerwork.tool.backend.ProductBackend;
+import com.richard.fyoung.customerwork.tool.backend.RefundConfirmationTokenService;
+import com.richard.fyoung.customerwork.tool.backend.RefundPaymentGateway;
 import com.richard.fyoung.customerwork.tool.backend.mapper.ComplaintMapper;
 import com.richard.fyoung.customerwork.tool.backend.mapper.InvoiceRequestMapper;
 import com.richard.fyoung.customerwork.tool.backend.mapper.KnowledgeMapper;
@@ -27,6 +31,7 @@ import com.richard.fyoung.customerwork.tool.backend.mapper.MemberMapper;
 import com.richard.fyoung.customerwork.tool.backend.mapper.OrderMapper;
 import com.richard.fyoung.customerwork.tool.backend.mapper.ProductMapper;
 import com.richard.fyoung.customerwork.tool.backend.mapper.RefundMapper;
+import com.richard.fyoung.customerwork.tool.backend.mapper.RefundFulfillmentFreezeMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -71,8 +76,21 @@ public class ToolBackendConfig {
     @ConditionalOnMissingBean(AfterSalesBackend.class)
     public AfterSalesBackend jdbcAfterSalesBackend(RefundMapper refundMapper,
                                                    InvoiceRequestMapper invoiceRequestMapper,
-                                                   OrderMapper orderMapper) {
-        return new MybatisAfterSalesBackend(refundMapper, invoiceRequestMapper, orderMapper);
+                                                   OrderMapper orderMapper,
+                                                   RefundFulfillmentFreezeMapper freezeMapper,
+                                                   PendingApprovalService approvalService,
+                                                   CustomerWorkTransactionExecutor transactionExecutor,
+                                                   RefundConfirmationTokenService tokenService,
+                                                   RefundPaymentGateway paymentGateway) {
+        return new MybatisAfterSalesBackend(refundMapper, invoiceRequestMapper, orderMapper,
+            freezeMapper, approvalService, transactionExecutor, tokenService, paymentGateway);
+    }
+
+    /** 未接入真实支付渠道时的安全默认值；申请可以审批，但执行不会伪报成功。 */
+    @Bean
+    @ConditionalOnMissingBean(RefundPaymentGateway.class)
+    public RefundPaymentGateway refundPaymentGateway() {
+        return RefundPaymentGateway.unavailable();
     }
 
     @Bean
@@ -113,8 +131,8 @@ public class ToolBackendConfig {
 
     @Bean
     @ConditionalOnMissingBean(AfterSalesBackend.class)
-    public AfterSalesBackend afterSalesBackend() {
-        return new MockAfterSalesBackend();
+    public AfterSalesBackend afterSalesBackend(RefundConfirmationTokenService tokenService) {
+        return new MockAfterSalesBackend(tokenService);
     }
 
     @Bean

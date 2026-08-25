@@ -35,13 +35,18 @@ public class MybatisOrderBackend implements OrderBackend {
     }
 
     @Override
-    public Mono<String> queryOrder(String orderId) {
+    public Mono<OrderQueryResult> queryOrder(String orderId) {
         return Mono.fromSupplier(() -> doQueryOrder(orderId));
     }
 
     @Override
     public Mono<String> queryLogistics(String orderId) {
         return Mono.fromSupplier(() -> doQueryLogistics(orderId));
+    }
+
+    @Override
+    public Mono<LogisticsQueryResult> queryLogisticsFacts(String orderId) {
+        return Mono.fromSupplier(() -> doQueryLogisticsFacts(orderId));
     }
 
     @Override
@@ -59,18 +64,17 @@ public class MybatisOrderBackend implements OrderBackend {
         return Mono.fromSupplier(() -> doUrgeShipment(orderId));
     }
 
-    private String doQueryOrder(String orderId) {
+    private OrderQueryResult doQueryOrder(String orderId) {
         try {
             OrderDO order = orderMapper.selectById(orderId);
             if (order == null) {
-                return "未查询到订单 " + orderId + "，请用户核对订单号。";
+                return OrderResultFactory.notFound(orderId);
             }
-            return String.format("订单 %s：状态=%s，金额=%s 元，下单时间=%s。",
-                orderId, order.getStatus(), order.getAmount().toPlainString(),
-                formatDate(order.getCreatedAtMs()));
+            return OrderResultFactory.found(orderId, order.getProductName(), order.getAmount(),
+                order.getStatus(), formatDate(order.getCreatedAtMs()));
         } catch (Exception e) {
             log.error("order query failed, code={}, orderId={}", "ORDER-BACKEND-QUERY-FAIL", orderId, e);
-            return "订单系统暂时不可用，建议稍后再试或转人工。";
+            return OrderResultFactory.unavailable(orderId);
         }
     }
 
@@ -88,6 +92,20 @@ public class MybatisOrderBackend implements OrderBackend {
         } catch (Exception e) {
             log.error("logistics query failed, code={}, orderId={}", "ORDER-BACKEND-LOGISTICS-FAIL", orderId, e);
             return "物流系统暂时不可用，建议稍后再试。";
+        }
+    }
+
+    private LogisticsQueryResult doQueryLogisticsFacts(String orderId) {
+        try {
+            OrderDO order = orderMapper.selectById(orderId);
+            if (order == null) {
+                return LogisticsResultFactory.notFound(orderId);
+            }
+            return LogisticsResultFactory.fromTrace(orderId, order.getLogisticsTrace());
+        } catch (Exception e) {
+            log.error("structured logistics query failed, code={}, orderId={}",
+                "ORDER-BACKEND-LOGISTICS-FACTS-FAIL", orderId, e);
+            return LogisticsResultFactory.unavailable(orderId);
         }
     }
 

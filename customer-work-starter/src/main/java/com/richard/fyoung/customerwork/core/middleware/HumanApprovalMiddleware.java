@@ -39,8 +39,10 @@ public class HumanApprovalMiddleware implements MiddlewareBase {
         if (input.toolCalls() != null) {
             for (ToolUseBlock use : input.toolCalls()) {
                 if (isGuarded(use.getName())) {
-                    log.info("[HITL] high-risk tool flagged for human review: tool={} args={} "
-                        + "(actual gate via Permission ask-rule)", use.getName(), use.getInput());
+                    // 工具参数可能包含退款原因、确认令牌等敏感内容；观测只保留工具名，
+                    // 不把原始输入复制到应用日志或 trace。
+                    log.info("[HITL] high-risk tool flagged for human review: tool={} "
+                        + "argsRedacted=true (actual gate via Permission ask-rule)", use.getName());
                 }
             }
         }

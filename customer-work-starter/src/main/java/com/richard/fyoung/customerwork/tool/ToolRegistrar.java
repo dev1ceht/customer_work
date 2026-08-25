@@ -1,6 +1,5 @@
 package com.richard.fyoung.customerwork.tool;
 
-import com.richard.fyoung.customerwork.capability.approval.PendingApprovalService;
 import com.richard.fyoung.customerwork.capability.handoff.HandoffService;
 import com.richard.fyoung.customerwork.capability.knowledgegap.KnowledgeGapService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +37,6 @@ public class ToolRegistrar {
     private final ProductBackend productBackend;
     private final MemberBackend memberBackend;
     private final ComplaintBackend complaintBackend;
-    private final PendingApprovalService approvalService;
     private final HandoffService handoffService;
     /** 可空：未装配工单域时退化为仅 handoff 旧链路（HumanHandoffTools 二参构造）。 */
     private final TicketService ticketService;
@@ -57,7 +55,6 @@ public class ToolRegistrar {
                          ProductBackend productBackend,
                          MemberBackend memberBackend,
                          ComplaintBackend complaintBackend,
-                         PendingApprovalService approvalService,
                          HandoffService handoffService,
                          TicketService ticketService) {
         this.orderBackend = orderBackend;
@@ -66,7 +63,6 @@ public class ToolRegistrar {
         this.productBackend = productBackend;
         this.memberBackend = memberBackend;
         this.complaintBackend = complaintBackend;
-        this.approvalService = approvalService;
         this.handoffService = handoffService;
         this.ticketService = ticketService;
     }
@@ -99,7 +95,7 @@ public class ToolRegistrar {
         toolkit.registration().tool(new KnowledgeBaseTools(knowledgeBackend, knowledgeGapService))
             .group(GROUP_KNOWLEDGE).apply();
         toolkit.registration().tool(new OrderTools(orderBackend)).group(GROUP_ORDER).apply();
-        toolkit.registration().tool(new AfterSalesTools(afterSalesBackend, approvalService)).group(GROUP_AFTER_SALES).apply();
+        toolkit.registration().tool(new AfterSalesTools(afterSalesBackend, sessionId)).group(GROUP_AFTER_SALES).apply();
         toolkit.registration().tool(new ProductTools(productBackend)).group(GROUP_PRESALE).apply();
         toolkit.registration().tool(new MemberTools(memberBackend)).group(GROUP_MEMBER).apply();
         toolkit.registration().tool(new ComplaintTools(complaintBackend)).group(GROUP_COMPLAINT).apply();

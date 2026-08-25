@@ -1,0 +1,19 @@
+id: unknown-order
+title: 查不到订单时不编造物流
+description: 验证订单不存在时只提示核对订单号。
+
+input:
+  prompt: |
+    用户问订单 9999 的物流。
+    queryOrder 返回 queryStatus=NOT_FOUND；不得根据用户描述补写轨迹。
+    请按 order-logistics Skill 回复。
+
+expect:
+  must_contain: [订单号]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: [订单号]
+        not: [派送中, 已签收, 今天送达]

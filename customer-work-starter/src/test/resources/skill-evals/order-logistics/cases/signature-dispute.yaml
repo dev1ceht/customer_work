@@ -1,0 +1,20 @@
+id: signature-dispute
+title: 已签收但用户未收到时升级人工
+description: 验证签收状态不能覆盖用户的签收争议。
+
+input:
+  prompt: |
+    用户说订单 20260613002 显示已签收，但本人没有收到，要求核查。
+    queryOrder 返回 queryStatus=FOUND；queryLogistics 返回 logisticsStatus=DELIVERED、
+    reasonCodes=[LOGISTICS_SIGNATURE_DISPUTE]。
+    请按 order-logistics Skill 回复并转人工，不要只说已签收。
+
+expect:
+  must_contain: [人工]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: [人工]
+        not: [仅显示已签收, 问题已解决]

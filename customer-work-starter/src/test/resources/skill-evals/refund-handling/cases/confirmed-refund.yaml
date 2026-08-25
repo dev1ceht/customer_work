@@ -1,0 +1,22 @@
+id: confirmed-refund
+title: 用户确认后创建待人工审核申请
+description: 验证 Agent 只把 Backend 确认结果解释为待审核申请，不宣称已批准或到账。
+
+input:
+  prompt: |
+    用户先看到以下退款摘要并明确回复“确认申请”：订单 20260613003，商品运动防汗蓝牙耳机，全部可退金额 199.00 元，
+    原因码 CHANGED_MIND，履约将被冻结，申请需人工审核且不会自动打款。
+    prepareRefund 返回 confirmationToken=opaque-server-token；随后 submitRefund 只接收 orderId、reasonCode、reasonText、confirmationToken，
+    Backend 返回 status=CREATED、refundNo=RF-123、applicationStatus=PENDING_REVIEW、refundableAmount=199.00、riskLevel=NORMAL、
+    policyVersion=refund-policy-2026-01、ruleIds=[REFUND-001, REFUND-002]。
+    请根据 refund-handling Skill 回复用户。
+
+expect:
+  must_contain: ["199.00", "RF-123", "待人工审核"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["RF-123", "PENDING_REVIEW"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款", "人工已批准"]

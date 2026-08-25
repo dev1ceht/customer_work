@@ -17,6 +17,9 @@ import java.math.BigDecimal;
 @TableName("cw_order")
 public class OrderDO {
 
+    /** 查询返回的租户归属；写入由租户拦截器/服务端上下文控制。 */
+    private String tenantId;
+
     /** 订单号（应用赋值，非自增）。 */
     @TableId(value = "order_id", type = IdType.INPUT)
     private String orderId;

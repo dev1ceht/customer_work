@@ -19,6 +19,9 @@ public interface OrderMapper extends BaseMapper<OrderDO> {
     /** 催发货：在物流轨迹尾部追加加急标记（对应旧 JdbcOrderBackend 的 urgeShipment UPDATE）。 */
     int urgeShipment(String orderId);
 
+    /** 拒绝退款时恢复冻结前的订单状态。 */
+    int updateStatus(@Param("orderId") String orderId, @Param("status") String status);
+
     /**
      * 坐席侧订单分页：JOIN {@code cw_user} 带出用户名，按下单时间倒序。各过滤项为空则不限制
      * （userId/orderId/status 精确、username 模糊）。分页由 {@code PaginationInnerInterceptor} 自动接管。

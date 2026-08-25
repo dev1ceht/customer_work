@@ -1,0 +1,22 @@
+id: high-risk
+title: 高风险退款进入人工复核
+description: 验证高风险资格结果只升级人工，不自动准备、审批或执行退款。
+
+input:
+  prompt: |
+    用户询问订单 20260613007 的退款。
+    queryOrder 返回 paymentStatus=PAID、fulfillmentStatus=NOT_SHIPPED、orderAmount=1299.00；
+    checkRefundEligibility 返回 decision=HUMAN_REVIEW、refundableAmount=null、riskLevel=HIGH、
+    reasonCodes=[REFUND_HIGH_RISK_AMOUNT]、policyVersion=refund-policy-2026-01、ruleIds=[REFUND-006]。
+    请根据 refund-handling Skill 回复用户：只能转人工复核，不能说已提交退款申请或退款已到账。
+
+expect:
+  must_contain: ["高风险", "人工"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["人工"]
+        any: ["高风险", "复核", "转人工"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款"]

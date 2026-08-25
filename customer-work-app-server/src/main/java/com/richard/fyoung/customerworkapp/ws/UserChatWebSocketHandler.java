@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.richard.fyoung.customerworkapp.chat.ChatDispatchService;
 import com.richard.fyoung.customerwork.safety.security.UserJwtService;
+import com.richard.fyoung.customerwork.safety.security.UserIdentityContext;
 import com.richard.fyoung.customerwork.safety.security.UserPrincipal;
 import com.richard.fyoung.customerwork.safety.tenant.TenantContext;
 import com.richard.fyoung.customerwork.safety.tenant.TenantContextThreadLocalAccessor;
@@ -90,7 +91,8 @@ public class UserChatWebSocketHandler implements WebSocketHandler {
             return session.close(CloseStatus.POLICY_VIOLATION);
         }
         return handleAuthenticated(session, user, access.accessEpoch())
-            .contextWrite(ctx -> ctx.put(TenantContextThreadLocalAccessor.KEY, user.tenantId()));
+            .contextWrite(ctx -> ctx.put(TenantContextThreadLocalAccessor.KEY, user.tenantId())
+                .put(UserIdentityContext.KEY, user));
     }
 
     private Mono<Void> handleAuthenticated(WebSocketSession session, UserPrincipal user,

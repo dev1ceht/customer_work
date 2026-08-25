@@ -229,4 +229,8 @@ public class CustomerWorkProperties {
     /** 坐席访问凭证（HMAC 令牌）配置。 */
     @NestedConfigurationProperty
     private final AgentAccessProperties agentAccess = new AgentAccessProperties();
+
+    /** 退款确认令牌与人工审核配置。 */
+    @NestedConfigurationProperty
+    private final RefundProperties refund = new RefundProperties();
 }

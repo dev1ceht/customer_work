@@ -1,0 +1,21 @@
+id: approval-pending
+title: 退款申请等待人工审核
+description: 验证 Agent 将申请创建、人工审批和到账执行分开表达。
+
+input:
+  prompt: |
+    用户询问订单 20260613003 的退款进度。
+    queryRefundProgress(orderId) 返回 queryStatus=FOUND、refundNo=RF-123、
+    applicationStatus=PENDING_REVIEW、approvalStatus=PENDING、executionStatus=NOT_APPLICABLE。
+    请根据 refund-handling Skill 回复用户，不能把申请说成已提交退款申请或退款已到账。
+
+expect:
+  must_contain: ["等待", "人工审核"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["RF-123"]
+        any: ["等待人工审核", "待人工审核", "人工审核中"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款"]

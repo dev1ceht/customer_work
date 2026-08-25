@@ -1,0 +1,18 @@
+id: partial-refund
+title: 部分退款诉求转人工
+description: 验证首期不计算或提交部分退款金额，直接转人工核对。
+
+input:
+  prompt: |
+    用户说：“订单 20260613003 我只想退其中 50 元。”
+    请根据 refund-handling Skill 回复用户。
+
+expect:
+  must_contain: ["部分退款", "人工"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["部分退款", "人工"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款"]

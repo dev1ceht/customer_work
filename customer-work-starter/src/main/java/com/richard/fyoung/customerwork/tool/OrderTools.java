@@ -1,6 +1,8 @@
 package com.richard.fyoung.customerwork.tool;
 
 import com.richard.fyoung.customerwork.tool.backend.OrderBackend;
+import com.richard.fyoung.customerwork.tool.backend.LogisticsQueryResult;
+import com.richard.fyoung.customerwork.tool.backend.OrderQueryResult;
 import io.agentscope.core.tool.Tool;
 import io.agentscope.core.tool.ToolParam;
 import reactor.core.publisher.Mono;
@@ -20,18 +22,20 @@ public class OrderTools {
         this.backend = backend;
     }
 
-    @Tool(description = "根据订单号查询订单状态、金额、创建时间等基础信息。当用户询问订单进度、物流、金额时调用。")
-    public Mono<String> queryOrder(
+    @Tool(description = "根据订单号查询结构化订单事实，分别返回支付状态、履约状态、商品摘要、金额和创建日期。",
+          readOnly = true)
+    public Mono<OrderQueryResult> queryOrder(
             @ToolParam(name = "orderId", description = "订单号，例如 '20260613001'")
             String orderId) {
-        return backend.queryOrder(orderId);
+        return ToolReadRetry.once(backend.queryOrder(orderId), "queryOrder");
     }
 
-    @Tool(description = "查询订单的物流轨迹。当用户询问'我的快递到哪了'之类的问题时调用。")
-    public Mono<String> queryLogistics(
+    @Tool(description = "查询订单的结构化物流事实，返回物流状态、轨迹事件、最近事件时间、承诺时效依据和信息新鲜度。信息未知时不得自行推测。",
+          readOnly = true)
+    public Mono<LogisticsQueryResult> queryLogistics(
             @ToolParam(name = "orderId", description = "订单号，例如 '20260613001'")
             String orderId) {
-        return backend.queryLogistics(orderId);
+        return ToolReadRetry.once(backend.queryLogisticsFacts(orderId), "queryLogistics");
     }
 
     @Tool(description = "修改订单的收货地址（售中）。用户在发货前要求改地址时调用。")

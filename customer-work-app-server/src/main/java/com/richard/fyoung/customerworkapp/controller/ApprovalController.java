@@ -5,8 +5,11 @@ import com.richard.fyoung.customerwork.capability.approval.ApprovalStatus;
 import com.richard.fyoung.customerwork.capability.approval.PendingApprovalService;
 import com.richard.fyoung.customerwork.observability.AuditSink;
 import com.richard.fyoung.customerwork.safety.security.ApprovalAuthWebFilter;
+import com.richard.fyoung.customerwork.tool.backend.AfterSalesBackend;
+import com.richard.fyoung.customerwork.tool.backend.RefundApprovalResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,10 +49,19 @@ public class ApprovalController {
 
     private final PendingApprovalService approvalService;
     private final AuditSink auditSink;
+    private final AfterSalesBackend afterSalesBackend;
 
-    public ApprovalController(PendingApprovalService approvalService, AuditSink auditSink) {
+    @Autowired
+    public ApprovalController(PendingApprovalService approvalService, AuditSink auditSink,
+                              AfterSalesBackend afterSalesBackend) {
         this.approvalService = approvalService;
         this.auditSink = auditSink;
+        this.afterSalesBackend = afterSalesBackend;
+    }
+
+    /** 兼容不装配售后后端的纯审批测试/宿主。 */
+    public ApprovalController(PendingApprovalService approvalService, AuditSink auditSink) {
+        this(approvalService, auditSink, null);
     }
 
     @Operation(summary = "审批单列表", description = "可选 ?status=pending/approved/denied 过滤")
@@ -71,25 +83,45 @@ public class ApprovalController {
 
     @Operation(summary = "放行审批单", description = "人工坐席放行，触发下游执行（如打款）")
     @PostMapping("/{id}/approve")
-    public Mono<ApprovalRequest> approve(@PathVariable String id,
-                                         @RequestParam(defaultValue = DEFAULT_OPERATOR) String operator,
-                                         ServerWebExchange exchange) {
+    public Mono<?> approve(@PathVariable String id,
+                           @RequestParam(defaultValue = DEFAULT_OPERATOR) String operator,
+                           ServerWebExchange exchange) {
         String resolvedOperator = resolveOperator(exchange, operator);
-        return Mono.fromCallable(() -> approvalService.approve(id, resolvedOperator))
-            .doOnNext(req -> audit(req, "approve", resolvedOperator, null))
+        return refundDecision(id, true, resolvedOperator, null)
             .onErrorMap(this::translate);
     }
 
     @Operation(summary = "拒绝审批单")
     @PostMapping("/{id}/deny")
-    public Mono<ApprovalRequest> deny(@PathVariable String id,
-                                      @RequestParam(defaultValue = DEFAULT_OPERATOR) String operator,
-                                      @RequestParam(required = false) String note,
-                                      ServerWebExchange exchange) {
+    public Mono<?> deny(@PathVariable String id,
+                        @RequestParam(defaultValue = DEFAULT_OPERATOR) String operator,
+                        @RequestParam(required = false) String note,
+                        ServerWebExchange exchange) {
         String resolvedOperator = resolveOperator(exchange, operator);
-        return Mono.fromCallable(() -> approvalService.deny(id, resolvedOperator, note))
-            .doOnNext(req -> audit(req, "deny", resolvedOperator, note))
+        return refundDecision(id, false, resolvedOperator, note)
             .onErrorMap(this::translate);
+    }
+
+    private Mono<?> refundDecision(String id, boolean approve, String operator, String note) {
+        return Mono.fromCallable(() -> approvalService.find(id)
+                .orElseThrow(() -> new NoSuchElementException("approval not found: " + id)))
+            .flatMap(req -> {
+                if (req.getType() != com.richard.fyoung.customerwork.capability.approval.ApprovalType.REFUND
+                    || afterSalesBackend == null) {
+                    return approve
+                        ? Mono.fromCallable(() -> approvalService.approve(id, operator))
+                        : Mono.fromCallable(() -> approvalService.deny(id, operator, note));
+                }
+                Mono<RefundApprovalResult> decision = approve
+                    ? afterSalesBackend.approveRefund(id, operator, note)
+                    : afterSalesBackend.denyRefund(id, operator, note);
+                return decision.doOnNext(result -> audit(result, approve ? "approve" : "deny", operator, note));
+            })
+            .doOnNext(result -> {
+                if (result instanceof ApprovalRequest request) {
+                    audit(request, approve ? "approve" : "deny", operator, note);
+                }
+            });
     }
 
     /**
@@ -110,6 +142,24 @@ public class ApprovalController {
         fields.put("sessionId", req.getSessionId());
         fields.put("decision", decision);
         fields.put("operator", operator);
+        if (note != null) {
+            fields.put("note", note);
+        }
+        auditSink.record(AUDIT_TYPE_APPROVAL_DECISION, fields);
+    }
+
+    private void audit(RefundApprovalResult result, String decision, String operator, String note) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("approvalId", result.approvalId());
+        fields.put("refundNo", result.refundNo());
+        fields.put("orderId", result.orderId());
+        fields.put("decision", decision);
+        fields.put("operator", operator);
+        fields.put("applicationStatus", result.applicationStatus());
+        fields.put("approvalStatus", result.approvalStatus());
+        fields.put("executionStatus", result.executionStatus());
+        fields.put("policyVersion", result.policyVersion());
+        fields.put("ruleIds", result.ruleIds());
         if (note != null) {
             fields.put("note", note);
         }

@@ -1,0 +1,18 @@
+id: normal-complaint
+title: 一般投诉创建普通优先级工单
+description: 验证工单创建结果需要工单号、状态和优先级，且不承诺赔偿。
+
+input:
+  prompt: |
+    用户明确投诉订单 20260613001 的客服态度，希望人工跟进。
+    请按 complaint-escalation Skill 使用最小事实创建 MEDIUM 工单，并根据返回的 ticketId、status、priority 回复。
+
+expect:
+  must_contain: [投诉工单, 工单]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: [投诉工单]
+        not: [已赔偿, 已退款, 问题已解决]

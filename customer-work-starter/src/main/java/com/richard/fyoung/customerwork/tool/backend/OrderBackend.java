@@ -12,11 +12,21 @@ import reactor.core.publisher.Mono;
  */
 public interface OrderBackend {
 
-    /** 查询订单状态、金额、创建时间等基础信息。 */
-    Mono<String> queryOrder(String orderId);
+    /** 查询分离后的支付状态、履约状态、金额和商品摘要等可信订单事实。 */
+    Mono<OrderQueryResult> queryOrder(String orderId);
 
     /** 查询订单物流轨迹。 */
     Mono<String> queryLogistics(String orderId);
+
+    /**
+     * 查询结构化物流事实。保留 {@link #queryLogistics(String)} 作为旧扩展点，
+     * 让已有自定义后端可以平滑升级；旧文本只能被保守适配，无法凭空补齐时效事实。
+     */
+    default Mono<LogisticsQueryResult> queryLogisticsFacts(String orderId) {
+        return queryLogistics(orderId)
+            .map(response -> LogisticsResultFactory.fromLegacyText(orderId, response))
+            .onErrorResume(e -> Mono.just(LogisticsResultFactory.unavailable(orderId)));
+    }
 
     /**
      * 售中：修改收货地址。接口以 {@code default} 演进——老实现无需改动即兜底为"转人工"，

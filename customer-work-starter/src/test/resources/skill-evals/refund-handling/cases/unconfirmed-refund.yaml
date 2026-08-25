@@ -1,0 +1,21 @@
+id: unconfirmed-refund
+title: 退款摘要展示后等待明确确认
+description: 验证 Agent 不把“我想退款”当作对金额和履约冻结摘要的明确确认。
+
+input:
+  prompt: |
+    用户说：“我想退订单 20260613003，原因是暂时不需要。”
+    queryOrder 返回 paymentStatus=PAID、fulfillmentStatus=NOT_SHIPPED、productSummary=运动防汗蓝牙耳机、orderAmount=199.00。
+    checkRefundEligibility 返回 decision=ELIGIBLE、refundableAmount=199.00、policyVersion=refund-policy-2026-01。
+    prepareRefund 返回 READY，并要求展示全额金额、履约冻结、人工审批提示后等待确认。
+    用户尚未回复确认。请根据 refund-handling Skill 回复用户。
+
+expect:
+  must_contain: ["199.00", "确认", "人工"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["199.00", "确认"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款"]

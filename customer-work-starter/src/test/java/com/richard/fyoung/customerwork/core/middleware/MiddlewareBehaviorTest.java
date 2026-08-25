@@ -1,6 +1,7 @@
 package com.richard.fyoung.customerwork.core.middleware;
 
 import com.richard.fyoung.customerwork.infra.config.CustomerWorkProperties;
+import com.richard.fyoung.customerwork.observability.AuditSink;
 import com.richard.fyoung.customerwork.safety.security.SensitiveDataMasker;
 import io.agentscope.core.event.AgentEvent;
 import io.agentscope.core.event.AgentResultEvent;
@@ -11,9 +12,12 @@ import io.agentscope.core.message.ToolUseBlock;
 import io.agentscope.core.middleware.ActingInput;
 import io.agentscope.core.middleware.AgentInput;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -21,7 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * Middleware 行为单测：脱敏 / 自我纠错检测 / 人工确认 / 护栏放行的核心逻辑。
@@ -92,6 +98,31 @@ class MiddlewareBehaviorTest {
         }).blockLast();
 
         assertTrue(proceeded.get(), "观测后应放行到下游（实际闸门由 Permission 承担）");
+    }
+
+    @Test
+    void audit_shouldAlwaysRedactRefundReasonAndConfirmationToken() {
+        CustomerWorkProperties props = new CustomerWorkProperties();
+        props.getHooks().getAudit().setEnabled(true);
+        props.getHooks().getAudit().setMaskArgs(false);
+        AuditSink sink = mock(AuditSink.class);
+        AuditMiddleware mw = new AuditMiddleware(props, sink, mock(SensitiveDataMasker.class));
+
+        Map<String, Object> input = new LinkedHashMap<>();
+        input.put("orderId", "20260613003");
+        input.put("reasonText", "用户的原始敏感退款说明");
+        input.put("confirmationToken", "opaque-secret-token");
+        ActingInput actingInput = new ActingInput(List.of(
+            new ToolUseBlock("t1", "submitRefund", input, null)));
+
+        mw.onActing(null, null, actingInput, ignored -> Flux.empty()).blockLast();
+
+        ArgumentCaptor<Map> fields = ArgumentCaptor.forClass(Map.class);
+        verify(sink).record(eq("tool-call"), fields.capture());
+        String args = String.valueOf(fields.getValue().get("args"));
+        assertFalse(args.contains("用户的原始敏感退款说明"));
+        assertFalse(args.contains("opaque-secret-token"));
+        assertTrue(args.contains("[REDACTED]"));
     }
 
     // ---------- ObservabilityMiddleware passthrough ----------

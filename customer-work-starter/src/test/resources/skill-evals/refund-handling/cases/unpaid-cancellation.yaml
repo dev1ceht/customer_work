@@ -1,0 +1,20 @@
+id: unpaid-cancellation
+title: 未支付订单进入取消流程
+description: 验证未支付订单不进入退款流程，并引导用户取消订单。
+
+input:
+  prompt: |
+    用户问：“订单 20260613005 能退款吗？”
+    queryOrder 返回 paymentStatus=UNPAID、fulfillmentStatus=NOT_SHIPPED。
+    checkRefundEligibility 返回 decision=INELIGIBLE、reasonCodes=[ORDER_UNPAID]。
+    请根据 refund-handling Skill 回复用户。
+
+expect:
+  must_contain: ["未支付", "取消订单"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["未支付", "取消订单"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款"]

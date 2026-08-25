@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.richard.fyoung.customerwork.tool.backend.mapper.RefundFulfillmentFreezeMapper">
+    <select id="findActiveByOrderId"
+            resultType="com.richard.fyoung.customerwork.tool.backend.entity.RefundFulfillmentFreezeDO">
+        SELECT freeze_id, order_id, refund_no, status, active_marker, previous_order_status,
+               reason, created_at_ms, released_at_ms
+        FROM cw_refund_fulfillment_freeze
+        WHERE order_id = #{orderId} AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
+    <select id="findActiveByRefundNo"
+            resultType="com.richard.fyoung.customerwork.tool.backend.entity.RefundFulfillmentFreezeDO">
+        SELECT freeze_id, order_id, refund_no, status, active_marker, previous_order_status,
+               reason, created_at_ms, released_at_ms
+        FROM cw_refund_fulfillment_freeze
+        WHERE refund_no = #{refundNo} AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
+    <update id="release">
+        UPDATE cw_refund_fulfillment_freeze
+        SET status = 'RELEASED', active_marker = NULL, released_at_ms = #{releasedAtMs}
+        WHERE freeze_id = #{freezeId} AND status = 'ACTIVE'
+    </update>
+</mapper>

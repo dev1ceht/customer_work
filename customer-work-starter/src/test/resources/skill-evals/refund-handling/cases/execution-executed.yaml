@@ -1,0 +1,22 @@
+id: execution-executed
+title: 渠道已受理但不承诺银行到账
+description: 验证 Agent 正确表达 EXECUTED 与实际到账的区别。
+
+input:
+  prompt: |
+    用户询问订单 20260613003 的退款进度。
+    queryRefundProgress(orderId) 返回 queryStatus=FOUND、refundNo=RF-123、
+    applicationStatus=EXECUTED、approvalStatus=APPROVED、executionStatus=EXECUTED，
+    executionReference=PAY-123，message=退款已提交支付渠道处理，具体到账以渠道为准。
+    请根据 refund-handling Skill 回复用户，不能说已提交退款申请或退款已到账，也不能承诺银行到账时效。
+
+expect:
+  must_contain: ["支付渠道", "凭证"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["RF-123"]
+        any: ["支付渠道已受理", "提交支付渠道处理", "渠道凭证"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款", "保证到账"]

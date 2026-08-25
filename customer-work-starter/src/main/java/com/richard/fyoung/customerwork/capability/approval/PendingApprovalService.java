@@ -74,8 +74,14 @@ public class PendingApprovalService {
     /** 登记一张待审批单（PENDING）。 */
     public ApprovalRequest submit(ApprovalType type, String sessionId,
                                   String orderId, String amount, String reason) {
+        return submit(type, sessionId, null, orderId, amount, reason);
+    }
+
+    /** 登记审批单并保留已验签用户主体，供资金类申请审计。 */
+    public ApprovalRequest submit(ApprovalType type, String sessionId, String userId,
+                                  String orderId, String amount, String reason) {
         String id = ID_PREFIX + UUID.randomUUID();
-        ApprovalRequest req = new ApprovalRequest(id, type, sessionId, orderId, amount, reason,
+        ApprovalRequest req = new ApprovalRequest(id, type, sessionId, userId, orderId, amount, reason,
             System.currentTimeMillis());
         store.save(req);
         log.info("approval submitted: id={}, type={}, order={}, session={}", id, type, orderId, sessionId);
@@ -98,12 +104,21 @@ public class PendingApprovalService {
 
     /** 人工放行：原子推进决策并取得执行租约后调用真实资金执行器。 */
     public ApprovalRequest approve(String id, String operator) {
+        ApprovalRequest request = approveDecisionOnly(id, operator, null);
+        log.info("approval approved: id={}, operator={}", id, operator);
+        executeApproval(id, Integer.MAX_VALUE, id, executionHandler.get());
+        return request;
+    }
+
+    /**
+     * 仅推进人工决策，不触发任何下游资金执行。
+     * 退款审批绑定需要先在同一事务内更新退款申请和履约冻结，再由独立执行任务处理资金。
+     */
+    public ApprovalRequest approveDecisionOnly(String id, String operator, String note) {
         require(id);
-        if (!store.decide(id, ApprovalStatus.APPROVED, operator, null, System.currentTimeMillis())) {
+        if (!store.decide(id, ApprovalStatus.APPROVED, operator, note, System.currentTimeMillis())) {
             throw alreadyDecided(id);
         }
-        log.info("approval approved: id={}, operator={}", id, operator);
-        executeApproval(id, Integer.MAX_VALUE);
         return require(id);
     }
 
@@ -111,7 +126,27 @@ public class PendingApprovalService {
      * 触发下游执行（如实际打款）；失败不回滚已生效的人工决策，只推进 {@link ExecutionStatus}
      * 供 {@link #retryExecutionFailures} 巡检重试与告警——避免"工单显示已放行、钱其实没动"被静默吞掉。
      */
+    /**
+     * 执行已批准工单，并允许领域执行器使用原业务幂等键。
+     *
+     * <p>退款等资金域不能把审批单号当作支付幂等键；该入口仍复用审批表的租约、fencing
+     * 和执行状态机，但把真正的业务键交给下游执行器。</p>
+     */
+    public boolean executeApproved(String id, int maxAttempts, String idempotencyKey,
+                                   ApprovalExecutionHandler handler) {
+        if (handler == null) {
+            throw new IllegalArgumentException("approval execution handler is required");
+        }
+        String key = idempotencyKey == null || idempotencyKey.isBlank() ? id : idempotencyKey;
+        return executeApproval(id, maxAttempts, key, handler);
+    }
+
     private boolean executeApproval(String id, int maxAttempts) {
+        return executeApproval(id, maxAttempts, id, executionHandler.get());
+    }
+
+    private boolean executeApproval(String id, int maxAttempts, String idempotencyKey,
+                                   ApprovalExecutionHandler handler) {
         String fencingToken = UUID.randomUUID().toString();
         long startedAtMs = System.currentTimeMillis();
         if (!store.claimExecution(id, maxAttempts, startedAtMs, fencingToken)) {
@@ -121,7 +156,7 @@ public class PendingApprovalService {
         boolean success = false;
         String failureReason = null;
         try {
-            executionHandler.get().execute(new ApprovalExecutionContext(req, req.getId(), fencingToken));
+            handler.execute(new ApprovalExecutionContext(req, idempotencyKey, fencingToken));
             success = true;
         } catch (Exception e) {
             failureReason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
@@ -167,18 +202,24 @@ public class PendingApprovalService {
 
     /** 人工拒绝：推进状态并触发 onDeny 回调；回调失败不影响拒绝决策本身（仅告警）。 */
     public ApprovalRequest deny(String id, String operator, String note) {
-        require(id);
-        if (!store.decide(id, ApprovalStatus.DENIED, operator, note, System.currentTimeMillis())) {
-            throw alreadyDecided(id);
-        }
-        ApprovalRequest req = require(id);
-        log.info("approval denied: id={}, operator={}, note={}", id, operator, note);
+        ApprovalRequest req = denyDecisionOnly(id, operator, note);
+        log.info("approval denied: id={}, operator={}, noteProvided={}", id, operator,
+            note != null && !note.isBlank());
         try {
             onDeny.get().accept(req);
         } catch (Exception e) {
             log.error("approval deny callback failed, errorCode={}, id={}", "APPROVAL-DENY-CALLBACK-FAIL", id, e);
         }
         return req;
+    }
+
+    /** 仅推进人工拒绝，不触发领域回调；退款绑定会在同一事务内释放履约冻结。 */
+    public ApprovalRequest denyDecisionOnly(String id, String operator, String note) {
+        require(id);
+        if (!store.decide(id, ApprovalStatus.DENIED, operator, note, System.currentTimeMillis())) {
+            throw alreadyDecided(id);
+        }
+        return require(id);
     }
 
     /** 挂接 approve 决策回调（下游执行实际动作）。 */

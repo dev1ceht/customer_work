@@ -27,6 +27,9 @@ public class ApprovalRequestDO {
     /** 关联会话。 */
     private String sessionId;
 
+    /** 已验签的终端用户主体；历史记录可为空。 */
+    private String userId;
+
     /** 关联订单号。 */
     private String orderId;
 

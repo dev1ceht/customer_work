@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -57,9 +58,14 @@ class MybatisOrderBackendTest {
     }
 
     @Test
-    void queryOrder_seededDemoOrder_shouldMatchMockText() {
-        String result = backend.queryOrder("20260613001").block();
-        assertEquals("订单 20260613001：状态=已发货，金额=299.00 元，下单时间=2026-06-10。", result);
+    void queryOrder_seededDemoOrder_shouldReturnSeparateStatuses() {
+        OrderQueryResult result = backend.queryOrder("20260613001").block();
+        assertEquals(OrderQueryResult.QueryStatus.FOUND, result.queryStatus());
+        assertEquals(OrderQueryResult.PaymentStatus.PAID, result.paymentStatus());
+        assertEquals(OrderQueryResult.FulfillmentStatus.SHIPPED, result.fulfillmentStatus());
+        assertEquals("旗舰款无线降噪耳机", result.productSummary());
+        assertEquals(new BigDecimal("299.00"), result.orderAmount());
+        assertEquals("2026-06-10", result.createdDate());
     }
 
     @Test
@@ -70,8 +76,9 @@ class MybatisOrderBackendTest {
 
     @Test
     void queryOrder_unknownOrder_shouldReturnNotFound() {
-        String result = backend.queryOrder("99999999999").block();
-        assertTrue(result.contains("未查询到订单"));
+        OrderQueryResult result = backend.queryOrder("99999999999").block();
+        assertEquals(OrderQueryResult.QueryStatus.NOT_FOUND, result.queryStatus());
+        assertTrue(result.reasonCodes().contains("ORDER_NOT_FOUND"));
     }
 
     @Test

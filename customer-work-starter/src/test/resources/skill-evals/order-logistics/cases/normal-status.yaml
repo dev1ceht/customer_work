@@ -1,0 +1,20 @@
+id: normal-status
+title: 有明确轨迹时只解释已知物流事实
+description: 验证 Agent 可以说明派送阶段，但不能承诺到达时间。
+
+input:
+  prompt: |
+    用户问：“订单 20260613001 到哪了？”
+    queryOrder 返回 FOUND；queryLogistics 返回 queryStatus=FOUND、logisticsStatus=OUT_FOR_DELIVERY、
+    freshnessStatus=UNKNOWN、events=[6-13 派送中]、promisedDeliveryAt=null。
+    请按 order-logistics Skill 回复，只说明已知轨迹，不估算 ETA。
+
+expect:
+  must_contain: [派送]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: [派送]
+        not: [肯定今天, 预计两小时, 已催发货]

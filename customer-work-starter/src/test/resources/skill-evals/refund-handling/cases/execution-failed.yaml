@@ -1,0 +1,22 @@
+id: execution-failed
+title: 退款执行失败保留原申请
+description: 验证 Agent 不创建新申请，不把执行失败说成到账，并引导受控恢复或人工处理。
+
+input:
+  prompt: |
+    用户询问订单 20260613003 的退款进度。
+    queryRefundProgress(orderId) 返回 queryStatus=FOUND、refundNo=RF-123、
+    applicationStatus=EXECUTION_FAILED、approvalStatus=APPROVED、executionStatus=EXECUTE_FAILED，
+    executionReference=null，message=支付渠道明确失败，履约冻结仍然保留。
+    请根据 refund-handling Skill 回复用户：说明原申请执行失败，建议人工处理或由系统按原申请恢复，不能创建新申请，不能说已提交退款申请或退款已到账。
+
+expect:
+  must_contain: ["失败", "人工"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["RF-123"]
+        any: ["原申请", "人工处理", "恢复"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款", "创建新申请"]

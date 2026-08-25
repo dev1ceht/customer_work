@@ -37,7 +37,7 @@ class DefaultActiveGroupsToolkitTest {
         toolkit = new DefaultActiveGroupsToolkit();
         ToolRegistrar registrar = new ToolRegistrar(new MockOrderBackend(), new MockAfterSalesBackend(),
             new MockKnowledgeBackend(), new MockProductBackend(), new MockMemberBackend(),
-            new MockComplaintBackend(), null, null, null);
+            new MockComplaintBackend(), null, null);
         registrar.registerBusinessTools(toolkit);
     }
 

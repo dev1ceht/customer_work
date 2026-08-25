@@ -148,8 +148,26 @@ public class CustomerWorkSchemaMigrator implements InitializingBean {
             }
             boolean semanticCacheGenerationMirror =
                 columnExists(connection, "cw_semantic_cache", "config_generation");
-            return semanticCacheGenerationMirror
-                ? SEMANTIC_CACHE_GENERATION_MIRROR_VERSION : ONLINE_EXPERIMENT_MIRROR_VERSION;
+            if (!semanticCacheGenerationMirror) {
+                return ONLINE_EXPERIMENT_MIRROR_VERSION;
+            }
+            boolean refundSafetyMirror = tableExists(connection, "cw_refund_fulfillment_freeze")
+                && columnExists(connection, "cw_refund", "application_status")
+                && columnExists(connection, "cw_refund", "active_marker")
+                && columnExists(connection, "cw_approval", "user_id");
+            if (!refundSafetyMirror) {
+                return SEMANTIC_CACHE_GENERATION_MIRROR_VERSION;
+            }
+            if (!columnExists(connection, "cw_refund", "idempotency_key")) {
+                return "15";
+            }
+            if (!columnExists(connection, "cw_refund_fulfillment_freeze", "previous_order_status")) {
+                return "16";
+            }
+            if (!columnExists(connection, "cw_refund", "execution_reference")) {
+                return "17";
+            }
+            return columnExists(connection, "cw_complaint", "priority") ? "19" : "18";
         }
     }
 

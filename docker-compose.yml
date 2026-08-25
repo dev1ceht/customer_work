@@ -1,5 +1,5 @@
-# 一键起依赖 + 应用：docker compose up -d
-# 仅起依赖（本地用 mvn spring-boot:run 跑应用）：docker compose up -d redis mysql minio nacos xxl-job-admin paddleocr
+# 一键起依赖 + 客服应用 + 后台服务：docker compose up -d
+# 仅起依赖（本地用 mvn spring-boot:run 跑应用/后台）：docker compose up -d redis mysql minio nacos xxl-job-admin paddleocr
 # MySQL 首次初始化自动建三个库：agent_scope_customer_work（业务，MYSQL_DATABASE）、
 # customer_admin（后台，00-create-database.sql）、xxl_job（调度，xxl-job-schema.sql 内部建）；
 # 建表归各应用的 SchemaInitializer / Flyway 管，initdb 只负责建库。
@@ -115,8 +115,52 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       NACOS_SERVER_ADDR: nacos:8848
+      # 与 customer-admin-server 共享坐席 HMAC 密钥；生产环境必须通过 .env/Secret 覆盖
+      CW_AGENT_WS_SECRET: ${CW_AGENT_WS_SECRET:-dev-agent-secret-change-me-0001}
       # 容器内经 compose 服务名访问 PaddleOCR（yml 默认 localhost:8868 只在宿主机成立）
       CUSTOMER_WORK_ATTACHMENT_OCR_PADDLE_BASE_URL: http://paddleocr:8080
+
+  # 后台管理服务：8082；Dockerfile.admin 只构建 customer-admin-server 及其上游模块。
+  # 默认使用 dev profile，让 Flyway 在本地首次启动时创建 customer_admin 表和种子账号。
+  customer-admin-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    image: customer-work/customer-admin-server:local
+    depends_on:
+      redis: { condition: service_healthy }
+      mysql: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      # 后台坐席代理依赖客服应用；只排启动顺序，不要求 app 健康检查通过。
+      app: { condition: service_started }
+      # OCR 为惰性调用，只排启动顺序，不等待首次模型下载完成。
+      paddleocr: { condition: service_started }
+      xxl-job-admin: { condition: service_started }
+    ports: ["8082:8082"]
+    environment:
+      SPRING_PROFILES_ACTIVE: ${ADMIN_SPRING_PROFILES_ACTIVE:-dev}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      ADMIN_MYSQL_URL: "jdbc:mysql://mysql:3306/customer_admin?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true"
+      ADMIN_MYSQL_USERNAME: root
+      ADMIN_MYSQL_PASSWORD: ${MYSQL_PASSWORD:-root}
+      ADMIN_MYSQL_DATABASE: customer_admin
+      ADMIN_REDIS_HOST: redis
+      ADMIN_REDIS_PORT: 6379
+      ADMIN_REDIS_PASSWORD: ${REDIS_PASSWORD:-123456}
+      ADMIN_AES_SECRET_KEY: ${ADMIN_AES_SECRET_KEY:-01234567890123456789012345678901}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      # admin 容器内访问 app 使用服务名；浏览器拿到的 WS 地址仍然指向宿主机 8080。
+      CW_BASE_URL: http://app:8080
+      CW_WS_URL: ${CW_WS_URL:-ws://localhost:8080/ws/agent}
+      CW_AGENT_WS_SECRET: ${CW_AGENT_WS_SECRET:-dev-agent-secret-change-me-0001}
+      # 默认使用 admin-server 内置调度器；需要 XXL-JOB 时将 ADMIN_XXL_JOB_ENABLED=true。
+      ADMIN_XXL_JOB_ENABLED: ${ADMIN_XXL_JOB_ENABLED:-false}
+      ADMIN_XXL_JOB_ADMIN_ADDRESSES: ${ADMIN_XXL_JOB_ADMIN_ADDRESSES:-http://xxl-job-admin:8080/xxl-job-admin}
+      ADMIN_XXL_JOB_ACCESS_TOKEN: ${ADMIN_XXL_JOB_ACCESS_TOKEN:-}
+      # 容器内访问 PaddleOCR 使用服务名，避免回落到 localhost:8868。
+      ADMIN_ATTACHMENT_OCR_PADDLE_BASE_URL: http://paddleocr:8080
 
 volumes:
   redis-data:

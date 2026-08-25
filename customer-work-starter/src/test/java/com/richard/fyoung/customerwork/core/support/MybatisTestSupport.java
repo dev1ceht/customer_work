@@ -41,6 +41,7 @@ import com.richard.fyoung.customerwork.tool.backend.mapper.MemberMapper;
 import com.richard.fyoung.customerwork.tool.backend.mapper.OrderMapper;
 import com.richard.fyoung.customerwork.tool.backend.mapper.ProductMapper;
 import com.richard.fyoung.customerwork.tool.backend.mapper.RefundMapper;
+import com.richard.fyoung.customerwork.tool.backend.mapper.RefundFulfillmentFreezeMapper;
 import com.richard.fyoung.customerwork.data.user.mapper.UserMapper;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.ibatis.session.Configuration;
@@ -71,7 +72,8 @@ public final class MybatisTestSupport {
         ApprovalMapper.class, SlotFillingMapper.class, DialogStageMapper.class, HandoffMapper.class,
         FeedbackMapper.class, UserMapper.class, TicketMapper.class, TicketEventMapper.class,
         ChatMessageMapper.class, AuditLogMapper.class, OrderMapper.class, ProductMapper.class,
-        RefundMapper.class, InvoiceRequestMapper.class, MemberMapper.class, MemberAccountLogMapper.class,
+        RefundMapper.class, RefundFulfillmentFreezeMapper.class, InvoiceRequestMapper.class,
+        MemberMapper.class, MemberAccountLogMapper.class,
         ComplaintMapper.class, KnowledgeMapper.class, ChatAttachmentMapper.class,
         SensitiveWordMapper.class, SeatAgentMapper.class,
         AgentCallLogMapper.class, AgentCallSegmentMapper.class,

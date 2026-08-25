@@ -141,6 +141,7 @@ public class MybatisApprovalStore implements ApprovalStore {
         entity.setId(request.getId());
         entity.setType(request.getType().name());
         entity.setSessionId(request.getSessionId());
+        entity.setUserId(request.getUserId());
         entity.setOrderId(request.getOrderId());
         entity.setAmount(request.getAmount());
         entity.setReason(request.getReason());
@@ -161,6 +162,7 @@ public class MybatisApprovalStore implements ApprovalStore {
             entity.getId(),
             ApprovalType.valueOf(entity.getType()),
             entity.getSessionId(),
+            entity.getUserId(),
             entity.getOrderId(),
             entity.getAmount(),
             entity.getReason(),

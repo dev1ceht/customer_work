@@ -20,6 +20,8 @@ public class ApprovalRequest {
     private final String id;
     private final ApprovalType type;
     private final String sessionId;
+    /** 已验签的终端用户主体；旧审批单可为空。 */
+    private final String userId;
     private final String orderId;
     private final String amount;
     private final String reason;
@@ -37,9 +39,15 @@ public class ApprovalRequest {
 
     public ApprovalRequest(String id, ApprovalType type, String sessionId,
                            String orderId, String amount, String reason, long createdAtMs) {
+        this(id, type, sessionId, null, orderId, amount, reason, createdAtMs);
+    }
+
+    public ApprovalRequest(String id, ApprovalType type, String sessionId, String userId,
+                           String orderId, String amount, String reason, long createdAtMs) {
         this.id = id;
         this.type = type;
         this.sessionId = sessionId;
+        this.userId = userId;
         this.orderId = orderId;
         this.amount = amount;
         this.reason = reason;
@@ -105,7 +113,17 @@ public class ApprovalRequest {
                                        ApprovalStatus status, String operator, String decisionNote, long decidedAtMs,
                                        ExecutionStatus executionStatus, String executionFailureReason,
                                        int executionAttempts) {
-        ApprovalRequest req = new ApprovalRequest(id, type, sessionId, orderId, amount, reason, createdAtMs);
+        return reconstruct(id, type, sessionId, null, orderId, amount, reason, createdAtMs,
+            status, operator, decisionNote, decidedAtMs, executionStatus, executionFailureReason,
+            executionAttempts);
+    }
+
+    static ApprovalRequest reconstruct(String id, ApprovalType type, String sessionId, String userId,
+                                       String orderId, String amount, String reason, long createdAtMs,
+                                       ApprovalStatus status, String operator, String decisionNote, long decidedAtMs,
+                                       ExecutionStatus executionStatus, String executionFailureReason,
+                                       int executionAttempts) {
+        ApprovalRequest req = new ApprovalRequest(id, type, sessionId, userId, orderId, amount, reason, createdAtMs);
         req.status = status;
         req.operator = operator;
         req.decisionNote = decisionNote;

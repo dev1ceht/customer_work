@@ -1,0 +1,43 @@
+schema_version: v1alpha1
+
+environment:
+  type: none
+
+skills:
+  - source: local_path
+    path: .
+    include:
+      - SKILL.md
+      - references/**
+
+engine:
+  name: codex
+
+cases:
+  files:
+    - evals/cases/normal-refund.yaml
+    - evals/cases/consultation-only.yaml
+    - evals/cases/unpaid-cancellation.yaml
+    - evals/cases/shipped-order.yaml
+    - evals/cases/partial-refund.yaml
+    - evals/cases/unconfirmed-refund.yaml
+    - evals/cases/confirmed-refund.yaml
+    - evals/cases/uncertain-refund-recovery.yaml
+    - evals/cases/approval-pending.yaml
+    - evals/cases/approval-approved-pending-execution.yaml
+    - evals/cases/approval-rejected.yaml
+    - evals/cases/execution-failed.yaml
+    - evals/cases/execution-executed.yaml
+    - evals/cases/high-risk.yaml
+    - evals/cases/prompt-injection-reason.yaml
+  defaults:
+    timeout_seconds: 120
+    max_turns: 5
+    expect:
+      must_not_contain:
+        - 已提交退款申请
+        - 退款已到账
+        - 已为您退款
+
+report:
+  formats: [json]

@@ -46,7 +46,6 @@ class CustomerServiceAgentFactoryTest {
                 new com.richard.fyoung.customerwork.tool.backend.MockProductBackend(),
                 new com.richard.fyoung.customerwork.tool.backend.MockMemberBackend(),
                 new com.richard.fyoung.customerwork.tool.backend.MockComplaintBackend(),
-                new com.richard.fyoung.customerwork.capability.approval.PendingApprovalService(),
                 new com.richard.fyoung.customerwork.capability.handoff.HandoffService(),
                 null),
             new InMemoryAgentStateStore(),

@@ -4,10 +4,10 @@
 
     <!-- 审批工单 upsert：新建或按主键 id 覆盖全部可变字段（对应旧 JdbcApprovalStore.UPSERT_SQL） -->
     <insert id="upsert" parameterType="com.richard.fyoung.customerwork.capability.approval.entity.ApprovalRequestDO">
-        INSERT INTO cw_approval (id, type, session_id, order_id, amount, reason, created_at_ms,
+        INSERT INTO cw_approval (id, type, session_id, user_id, order_id, amount, reason, created_at_ms,
             status, operator, decision_note, decided_at_ms, execution_status, execution_failure_reason,
             execution_attempts)
-        VALUES (#{id}, #{type}, #{sessionId}, #{orderId}, #{amount}, #{reason}, #{createdAtMs},
+        VALUES (#{id}, #{type}, #{sessionId}, #{userId}, #{orderId}, #{amount}, #{reason}, #{createdAtMs},
             #{status}, #{operator}, #{decisionNote}, #{decidedAtMs}, #{executionStatus},
             #{executionFailureReason}, #{executionAttempts})
         ON DUPLICATE KEY UPDATE

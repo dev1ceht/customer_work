@@ -1,0 +1,20 @@
+id: normal-refund
+title: 已支付未发货订单的退款资格说明
+description: 验证 Agent 只解释 Backend 给出的全额仅退款资格和金额，不创建退款申请。
+
+input:
+  prompt: |
+    用户问：“订单 20260613003 能退款吗？”
+    queryOrder 返回 paymentStatus=PAID、fulfillmentStatus=NOT_SHIPPED、orderAmount=199.00。
+    checkRefundEligibility 返回 decision=ELIGIBLE、refundableAmount=199.00、policyVersion=refund-policy-2026-01。
+    请根据 refund-handling Skill 回复用户。
+
+expect:
+  must_contain: ["199.00", "资格"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["199.00", "资格"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款"]

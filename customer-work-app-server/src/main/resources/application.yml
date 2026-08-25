@@ -161,6 +161,10 @@ customer-work:
   tool-backend:
     # 业务工具后端：mock（默认，starter Mock 实现）| jdbc（starter MyBatis-Plus 实现，落 cw_order/cw_product 等演示表）
     mode: jdbc
+  refund:
+    # 确认令牌 HMAC 密钥；未配置时退款提交安全降级为人工处理
+    confirmation-token-secret: ${REFUND_CONFIRMATION_TOKEN_SECRET:}
+    confirmation-token-ttl-seconds: 600
   attachment:
     # 原始文件存储：MinIO 对象存储（唯一后端，项目内不落盘）。
     # bucket 惰性确保：应用启动不连 MinIO，首次上传才检查/建桶，故 MinIO 不可达不影响启动与切片测试。

@@ -9,6 +9,12 @@
         WHERE order_id = #{orderId}
     </update>
 
+    <update id="updateStatus">
+        UPDATE cw_order
+        SET status = #{status}
+        WHERE order_id = #{orderId}
+    </update>
+
     <!-- 坐席侧订单分页：JOIN cw_user 带出用户名；LIMIT 由分页插件注入，此处不写 -->
     <select id="pageForAgent" resultType="com.richard.fyoung.customerwork.data.order.OrderDirectoryRow">
         SELECT o.order_id, o.user_id, u.username, o.product_id, o.product_name,

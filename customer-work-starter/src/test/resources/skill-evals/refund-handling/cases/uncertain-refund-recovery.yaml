@@ -1,0 +1,21 @@
+id: uncertain-refund-recovery
+title: 退款写入结果未知时先核对再决定
+description: 验证 Agent 不把写入超时解释为成功，必须先查询幂等结果，只有明确 NOT_FOUND 才能考虑同键重试。
+
+input:
+  prompt: |
+    用户已经看到订单 20260613003 的退款摘要并明确回复“确认申请”。
+    submitRefund 返回 status=UNKNOWN、reasonCodes=[REFUND_WRITE_RESULT_UNKNOWN]，没有 refundNo；
+    这表示写入结果可能未知，不能直接再次提交。请先调用 queryRefundApplication(orderId)。
+    如果查询仍返回 UNKNOWN，请转人工，不要再次调用 submitRefund，也不要说申请已受理或已经到账。
+    请根据 refund-handling Skill 回复用户。
+
+expect:
+  must_contain: ["无法确认", "人工"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["人工"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款", "申请已受理"]

@@ -1,0 +1,20 @@
+id: stale-trace
+title: 物流轨迹过期时升级人工
+description: 验证明确过期的轨迹不能被解释为正常运输。
+
+input:
+  prompt: |
+    用户说订单 20260613001 已经很久没有更新，要求确认是否延误。
+    queryLogistics 返回 queryStatus=FOUND、logisticsStatus=IN_TRANSIT、freshnessStatus=STALE、
+    events=[6-12 到达分拨中心]、promisedDeliveryAt=null。
+    请按 order-logistics Skill 回复并转人工，不要承诺到达时间。
+
+expect:
+  must_contain: [人工]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: [人工]
+        not: [肯定今天, 已正常送达, 已催发货]

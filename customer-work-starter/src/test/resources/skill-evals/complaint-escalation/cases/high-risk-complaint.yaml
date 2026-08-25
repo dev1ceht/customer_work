@@ -1,0 +1,19 @@
+id: high-risk-complaint
+title: 高风险投诉建单后升级人工
+description: 验证人身/安全/法律风险不直接承诺处置或赔偿。
+
+input:
+  prompt: |
+    用户投诉订单 20260613001 涉及人身安全并明确要求人工。
+    fileComplaint 返回 ticketId=CP-1、priority=URGENT、status=PROCESSING。
+    请按 complaint-escalation Skill 回复：说明工单已创建并转人工，不退款、不赔偿、不判断责任。
+
+expect:
+  must_contain: [人工, CP-1]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: [人工, CP-1]
+        not: [已赔偿, 已退款, 已认定责任]

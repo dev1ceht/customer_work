@@ -2,6 +2,7 @@ package com.richard.fyoung.customerwork.tool.backend;
 
 import com.richard.fyoung.customerwork.tool.backend.entity.ComplaintDO;
 import com.richard.fyoung.customerwork.tool.backend.mapper.ComplaintMapper;
+import com.richard.fyoung.customerwork.capability.routing.TicketPriority;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
@@ -30,7 +31,13 @@ public class MybatisComplaintBackend implements ComplaintBackend {
 
     @Override
     public Mono<String> fileComplaint(String orderId, String content) {
-        return Mono.fromSupplier(() -> doFileComplaint(orderId, content));
+        ComplaintEvidence evidence = ComplaintEvidence.legacy(orderId, content);
+        return Mono.fromSupplier(() -> legacyCreateText(orderId, doFileComplaint(evidence)));
+    }
+
+    @Override
+    public Mono<ComplaintTicketResult> fileComplaintStructured(String orderId, ComplaintEvidence evidence) {
+        return Mono.fromSupplier(() -> doFileComplaint(evidence));
     }
 
     @Override
@@ -38,22 +45,33 @@ public class MybatisComplaintBackend implements ComplaintBackend {
         return Mono.fromSupplier(() -> doQueryComplaint(ticketId));
     }
 
-    private String doFileComplaint(String orderId, String content) {
+    @Override
+    public Mono<ComplaintTicketResult> queryComplaintStructured(String ticketId) {
+        return Mono.fromSupplier(() -> doQueryComplaintStructured(ticketId));
+    }
+
+    private ComplaintTicketResult doFileComplaint(ComplaintEvidence evidence) {
+        if (evidence == null || evidence.summary().isBlank()) {
+            return ComplaintTicketResult.rejectedEvidence(
+                evidence == null ? null : evidence.priority(), "COMPLAINT_SUMMARY_MISSING");
+        }
         String complaintNo = ComplaintBackend.ID_PREFIX + System.currentTimeMillis();
         try {
             ComplaintDO record = new ComplaintDO();
             record.setComplaintNo(complaintNo);
-            record.setOrderId(orderId);
-            record.setContent(content);
+            record.setOrderId(evidence.orderId());
+            record.setContent(evidence.storageText());
             record.setStatus(STATUS_PROCESSING);
+            record.setPriority(evidence.priority().name());
             record.setCreatedAtMs(System.currentTimeMillis());
             complaintMapper.insert(record);
-            log.info("file complaint: ticket={}, order={}", complaintNo, orderId);
-            return "已为您创建投诉工单 " + complaintNo + "（订单 " + orderId + "），"
-                + "我们将在 24 小时内跟进处理，结果将短信通知您。";
+            log.info("file complaint: ticket={}, order={}, priority={}", complaintNo, evidence.orderId(), evidence.priority());
+            return ComplaintTicketResult.created(complaintNo, evidence.priority(), STATUS_PROCESSING,
+                java.util.List.of("COMPLAINT_EVIDENCE_SANITIZED"));
         } catch (Exception e) {
-            log.error("file complaint failed, code={}, orderId={}", "COMPLAINT-BACKEND-FILE-FAIL", orderId, e);
-            return "投诉工单系统暂时不可用，已为您转接人工坐席。";
+            log.error("file complaint failed, code={}, orderId={}",
+                "COMPLAINT-BACKEND-FILE-FAIL", evidence.orderId(), e);
+            return ComplaintTicketResult.unavailable();
         }
     }
 
@@ -71,5 +89,28 @@ public class MybatisComplaintBackend implements ComplaintBackend {
             log.error("query complaint failed, code={}, ticketId={}", "COMPLAINT-BACKEND-QUERY-FAIL", ticketId, e);
             return "投诉工单查询暂时不可用，建议稍后再试。";
         }
+    }
+
+    private ComplaintTicketResult doQueryComplaintStructured(String ticketId) {
+        try {
+            ComplaintDO complaint = complaintMapper.selectById(ticketId);
+            if (complaint == null) {
+                return ComplaintTicketResult.notFound(ticketId);
+            }
+            TicketPriority priority = TicketPriority.fromName(complaint.getPriority());
+            String status = STATUS_RESOLVED.equals(complaint.getStatus()) ? "RESOLVED" : STATUS_PROCESSING;
+            return ComplaintTicketResult.created(ticketId, priority, status, java.util.List.of());
+        } catch (Exception e) {
+            log.error("query structured complaint failed, code={}, ticketId={}",
+                "COMPLAINT-BACKEND-QUERY-FACTS-FAIL", ticketId, e);
+            return ComplaintTicketResult.unavailable();
+        }
+    }
+
+    private String legacyCreateText(String orderId, ComplaintTicketResult result) {
+        return result.submissionStatus() == ComplaintTicketResult.SubmissionStatus.CREATED
+            ? "已为您创建投诉工单 " + result.ticketId() + "（订单 " + orderId + "），"
+                + "我们将在 24 小时内跟进处理，结果将短信通知您。"
+            : "投诉工单系统暂时不可用，已为您转接人工坐席。";
     }
 }

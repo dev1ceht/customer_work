@@ -93,8 +93,10 @@ public class UserAuthWebFilter implements WebFilter {
         String tenantId = principal.tenantId();
         QuotaSubject subject = QuotaSubject.user(principal.userId());
         return Mono.defer(() -> TenantContext.callWith(tenantId,
-                () -> QuotaSubjectContext.callWith(subject, () -> chain.filter(exchange))))
+                () -> UserIdentityContext.callWith(principal,
+                    () -> QuotaSubjectContext.callWith(subject, () -> chain.filter(exchange)))))
             .contextWrite(ctx -> ctx.put(TenantContextThreadLocalAccessor.KEY, tenantId)
+                .put(UserIdentityContext.KEY, principal)
                 .put(QuotaSubjectContextThreadLocalAccessor.KEY, subject));
     }
 

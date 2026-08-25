@@ -26,6 +26,9 @@ public class ComplaintDO {
     /** 状态：PROCESSING/RESOLVED。 */
     private String status;
 
+    /** 优先级：LOW/MEDIUM/HIGH/URGENT。 */
+    private String priority;
+
     /** 创建时间戳（毫秒）。 */
     private long createdAtMs;
 }

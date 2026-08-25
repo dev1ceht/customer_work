@@ -17,6 +17,7 @@ public final class CustomerSecurityPaths {
     private static final String CSAT_SUMMARY = "/api/customer/csat/summary";
     private static final String AGENT_PREFIX = "/api/customer/agent/";
     private static final String HANDOFF_PREFIX = "/api/customer/handoffs";
+    private static final String REFUND_FORM_PREFIX = "/api/customer/forms/refund";
 
     private CustomerSecurityPaths() {
     }
@@ -40,6 +41,8 @@ public final class CustomerSecurityPaths {
             || path.equals("/api/customer/attachment")
             || path.equals(FEEDBACK_PREFIX)
             || path.startsWith(FEEDBACK_PREFIX + "/")
+            || path.equals(REFUND_FORM_PREFIX)
+            || path.startsWith(REFUND_FORM_PREFIX + "/")
             || (path.startsWith(CSAT_PREFIX) && !path.equals(CSAT_SUMMARY));
     }
 

@@ -1,0 +1,22 @@
+id: approval-rejected
+title: 退款申请被人工拒绝
+description: 验证 Agent 在拒绝结果后停止自动重提，并引导人工申诉。
+
+input:
+  prompt: |
+    用户询问订单 20260613003 的退款进度。
+    queryRefundProgress(orderId) 返回 queryStatus=FOUND、refundNo=RF-123、
+    applicationStatus=REJECTED、approvalStatus=DENIED、executionStatus=NOT_APPLICABLE，
+    message=退款申请已被人工拒绝，履约冻结已释放。
+    请根据 refund-handling Skill 回复用户：说明拒绝结果，建议联系人工申诉，不能自动重新提交，不能说已提交退款申请或退款已到账。
+
+expect:
+  must_contain: ["拒绝", "人工"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["RF-123"]
+        any: ["人工申诉", "联系人工", "人工处理"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款", "自动重新提交"]

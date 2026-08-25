@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.richard.fyoung.customerwork.core.support.MybatisTestSupport;
 import com.richard.fyoung.customerwork.tool.backend.entity.ComplaintDO;
 import com.richard.fyoung.customerwork.tool.backend.mapper.ComplaintMapper;
+import com.richard.fyoung.customerwork.capability.routing.TicketPriority;
 import com.zaxxer.hikari.HikariDataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,7 @@ import java.net.Socket;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
@@ -63,6 +65,25 @@ class MybatisComplaintBackendTest {
             String result = backend.fileComplaint(orderId, "客服态度差").block();
             assertTrue(result.contains("已为您创建投诉工单"), "应创建投诉工单");
             assertTrue(result.contains("24 小时内跟进处理"));
+        } finally {
+            deleteComplaintByOrder(orderId);
+        }
+    }
+
+    @Test
+    void structuredComplaint_shouldPersistPriorityAndReturnStatus() {
+        String orderId = "T-" + UUID.randomUUID().toString().substring(0, 8);
+        try {
+            ComplaintEvidence evidence = new ComplaintEvidence(orderId, "物流延误", "最后轨迹已核验",
+                "希望人工跟进", "用户明确要求人工", TicketPriority.HIGH);
+            ComplaintTicketResult created = backend.fileComplaintStructured(orderId, evidence).block();
+            assertEquals(ComplaintTicketResult.SubmissionStatus.CREATED, created.submissionStatus());
+            assertEquals(TicketPriority.HIGH, created.priority());
+            assertEquals("PROCESSING", created.status());
+
+            ComplaintTicketResult queried = backend.queryComplaintStructured(created.ticketId()).block();
+            assertEquals(TicketPriority.HIGH, queried.priority());
+            assertEquals("PROCESSING", queried.status());
         } finally {
             deleteComplaintByOrder(orderId);
         }

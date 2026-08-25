@@ -124,6 +124,10 @@ customer-work:
   # ------------------------------------------------------------------
   human-approval:
     store-mode: jdbc
+  refund:
+    # 生产必须由密钥管理系统注入，不能使用代码或配置文件中的固定密钥
+    confirmation-token-secret: ${REFUND_CONFIRMATION_TOKEN_SECRET:}
+    confirmation-token-ttl-seconds: 600
   slot-filling:
     store-mode: jdbc
   dialog:

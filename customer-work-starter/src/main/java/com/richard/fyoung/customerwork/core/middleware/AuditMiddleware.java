@@ -95,7 +95,22 @@ public class AuditMiddleware implements MiddlewareBase {
         if (use == null || use.getInput() == null) {
             return "{}";
         }
-        return maybeMask(use.getInput().toString());
+        Map<String, Object> args = new LinkedHashMap<>(use.getInput());
+        if (isRefundTool(use.getName())) {
+            redact(args, "reasonText");
+            redact(args, "confirmationToken");
+        }
+        return maybeMask(args.toString());
+    }
+
+    private boolean isRefundTool(String toolName) {
+        return "prepareRefund".equals(toolName) || "submitRefund".equals(toolName);
+    }
+
+    private void redact(Map<String, Object> args, String key) {
+        if (args.containsKey(key)) {
+            args.put(key, "[REDACTED]");
+        }
     }
 
     private String maybeMask(String text) {

@@ -1,0 +1,21 @@
+id: consultation-only
+title: 退款咨询与正式申请分离
+description: 验证用户只咨询政策时，Agent 在解释资格后停止，不调用或声称完成写操作。
+
+input:
+  prompt: |
+    用户说：“我只是先问问，订单 20260613003 如果退能退多少？”
+    queryOrder 返回 paymentStatus=PAID、fulfillmentStatus=NOT_SHIPPED、orderAmount=199.00。
+    checkRefundEligibility 返回 decision=ELIGIBLE、refundableAmount=199.00。
+    请根据 refund-handling Skill 回复用户。
+
+expect:
+  must_contain: ["199.00", "咨询"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["199.00"]
+        any: ["咨询", "尚未提交", "不会创建"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款"]

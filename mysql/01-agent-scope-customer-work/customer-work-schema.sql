@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS `cw_approval` (
     `id`                        VARCHAR(64) PRIMARY KEY COMMENT '审批单号',
     `type`                      VARCHAR(32) NOT NULL COMMENT '审批类型：REFUND 等',
     `session_id`                VARCHAR(128) COMMENT '关联会话',
+    `user_id`                   VARCHAR(64) COMMENT '已验签的终端用户主体',
     `order_id`                  VARCHAR(64) COMMENT '关联订单号',
     `amount`                    VARCHAR(32) COMMENT '涉及金额',
     `reason`                    TEXT COMMENT '诉求原因',
@@ -397,23 +398,54 @@ INSERT IGNORE INTO `cw_order` (`tenant_id`, `order_id`, `user_id`, `product_id`,
 ('default', '20260613003', 'U-demo-2', 'P002', '运动防汗蓝牙耳机', 199.00, '待发货', '广州市天河区体育西路 1 号', '[6-13 已下单，仓库备货中]', 1781308800000),
 ('default', '20260613004', 'U-demo-2', 'P001', '旗舰款无线降噪耳机', 299.00, '已退款', '深圳市南山区科技园路 5 号', '[6-08 已揽收]→[6-09 用户取消]→[6-10 已退款]', 1780876800000);
 
--- 售后工单表（cw_refund）：JdbcAfterSalesBackend 演示表。退款/退货/换货共表，submitRefund 只落 PENDING 待人工复核（资金红线）。
+-- 售后工单表（cw_refund）：退款/退货/换货共表。退款申请只落 PENDING_REVIEW 待人工复核（资金红线）。
 CREATE TABLE IF NOT EXISTS `cw_refund` (
     `tenant_id`     VARCHAR(64) NOT NULL DEFAULT 'default' COMMENT '租户ID（多租户行级隔离）',
     `refund_no`      VARCHAR(64) PRIMARY KEY COMMENT '售后工单号',
     `order_id`       VARCHAR(32) NOT NULL COMMENT '关联订单号',
     `type`           VARCHAR(16) NOT NULL COMMENT '类型：REFUND/RETURN/EXCHANGE',
     `status`         VARCHAR(16) NOT NULL COMMENT '状态：PENDING/APPROVED/DENIED',
+    `application_status` VARCHAR(32) NOT NULL DEFAULT 'PENDING_REVIEW' COMMENT '退款申请状态',
+    `active_marker` VARCHAR(16) NULL COMMENT '活跃全额退款占位键；拒绝申请为空',
+    `user_id`        VARCHAR(64) COMMENT '已验签的申请用户主体',
+    `approval_id`    VARCHAR(64) COMMENT '关联人工审批单号',
+    `idempotency_key` VARCHAR(160) COMMENT '服务端生成的全额退款业务幂等键',
     `amount`         DECIMAL(10,2) COMMENT '退款金额（退货/换货可空）',
     `reason`         VARCHAR(500) COMMENT '诉求原因',
     `new_spec`       VARCHAR(128) COMMENT '换货目标规格',
     `created_at_ms`  BIGINT NOT NULL COMMENT '创建时间戳（毫秒）',
+    `policy_version` VARCHAR(64) COMMENT '资格决策政策版本',
+    `risk_level`     VARCHAR(16) COMMENT '资格决策风险等级',
+    `rule_ids_json`  VARCHAR(1024) COMMENT '资格规则证据 JSON',
+    `execution_reference` VARCHAR(128) COMMENT '支付渠道受理/执行凭证',
+    `execution_failure_reason` VARCHAR(256) COMMENT '支付执行失败或结果未知的内部原因',
+    `executed_at_ms` BIGINT NOT NULL DEFAULT 0 COMMENT '支付渠道明确受理时间戳（毫秒）',
+    UNIQUE KEY `uk_refund_active_full` (`tenant_id`, `order_id`, `type`, `active_marker`),
+    UNIQUE KEY `uk_refund_idempotency` (`tenant_id`, `idempotency_key`),
     INDEX `idx_refund_order` (`order_id`, `created_at_ms`),
-    INDEX `idx_refund_tenant` (`tenant_id`)
+    INDEX `idx_refund_tenant` (`tenant_id`),
+    INDEX `idx_refund_application_status` (`tenant_id`, `application_status`, `created_at_ms`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO `cw_refund` (`tenant_id`, `refund_no`, `order_id`, `type`, `status`, `amount`, `reason`, `new_spec`, `created_at_ms`) VALUES
-('default', 'RF-seed-20260613004', '20260613004', 'REFUND', 'APPROVED', 299.00, '七天无理由退款', NULL, 1781049600000);
+INSERT IGNORE INTO `cw_refund` (`tenant_id`, `refund_no`, `order_id`, `type`, `status`, `application_status`, `active_marker`, `user_id`, `approval_id`, `idempotency_key`, `amount`, `reason`, `new_spec`, `created_at_ms`, `policy_version`, `risk_level`, `rule_ids_json`) VALUES
+('default', 'RF-seed-20260613004', '20260613004', 'REFUND', 'APPROVED', 'APPROVED_PENDING_EXECUTION', 'ACTIVE', NULL, NULL, 'REFUND:FULL:default:20260613004', 299.00, '七天无理由退款', NULL, 1781049600000, 'refund-policy-2026-01', 'NORMAL', '["REFUND-001","REFUND-003"]');
+
+-- 退款申请创建事务中的履约冻结；同租户同订单只能有一条 ACTIVE 记录。
+CREATE TABLE IF NOT EXISTS `cw_refund_fulfillment_freeze` (
+    `tenant_id`      VARCHAR(64) NOT NULL DEFAULT 'default' COMMENT '租户ID（多租户行级隔离）',
+    `freeze_id`      VARCHAR(64) PRIMARY KEY COMMENT '履约冻结记录号',
+    `order_id`       VARCHAR(64) NOT NULL COMMENT '订单号',
+    `refund_no`      VARCHAR(64) NOT NULL COMMENT '退款申请号',
+    `status`         VARCHAR(16) NOT NULL COMMENT 'ACTIVE/RELEASED',
+    `active_marker`  VARCHAR(16) COMMENT 'ACTIVE 时占用订单唯一键，释放后为空',
+    `previous_order_status` VARCHAR(32) COMMENT '创建冻结前的订单状态，拒绝审批时恢复',
+    `reason`         VARCHAR(128) NOT NULL COMMENT '冻结原因',
+    `created_at_ms`  BIGINT NOT NULL COMMENT '创建时间戳（毫秒）',
+    `released_at_ms` BIGINT DEFAULT 0 COMMENT '解除时间戳（毫秒）',
+    UNIQUE KEY `uk_refund_freeze_active_order` (`tenant_id`, `order_id`, `active_marker`),
+    INDEX `idx_refund_freeze_refund` (`tenant_id`, `refund_no`),
+    INDEX `idx_refund_freeze_status` (`tenant_id`, `status`, `created_at_ms`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- 发票申请表（cw_invoice_request）：JdbcAfterSalesBackend 演示表。requestInvoice 真实落库。
 CREATE TABLE IF NOT EXISTS `cw_invoice_request` (
@@ -465,6 +497,7 @@ CREATE TABLE IF NOT EXISTS `cw_complaint` (
     `order_id`       VARCHAR(32) COMMENT '关联订单号（可空）',
     `content`        TEXT COMMENT '投诉内容',
     `status`         VARCHAR(16) NOT NULL COMMENT '状态：PROCESSING/RESOLVED',
+    `priority`       VARCHAR(16) NOT NULL DEFAULT 'MEDIUM' COMMENT '投诉优先级：LOW/MEDIUM/HIGH/URGENT',
     `created_at_ms`  BIGINT NOT NULL COMMENT '创建时间戳（毫秒）',
     INDEX `idx_complaint_order` (`order_id`, `created_at_ms`),
     INDEX `idx_complaint_tenant` (`tenant_id`)

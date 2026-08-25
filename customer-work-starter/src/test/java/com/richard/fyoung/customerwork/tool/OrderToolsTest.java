@@ -1,9 +1,14 @@
 package com.richard.fyoung.customerwork.tool;
 
 import com.richard.fyoung.customerwork.tool.backend.MockOrderBackend;
+import com.richard.fyoung.customerwork.tool.backend.LogisticsQueryResult;
+import com.richard.fyoung.customerwork.tool.backend.OrderQueryResult;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
+import java.math.BigDecimal;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -15,11 +20,14 @@ class OrderToolsTest {
     private final OrderTools tools = new OrderTools(new MockOrderBackend());
 
     @Test
-    void queryOrder_shouldReturnStatus_forKnownOrder() {
-        StepVerifier.create(tools.queryOrder("20260613001"))
+    void queryOrder_shouldSeparatePaymentAndFulfillmentStatus_forKnownOrder() {
+        StepVerifier.create(tools.queryOrder("20260613003"))
             .assertNext(result -> {
-                assertTrue(result.contains("已发货"), "应包含订单状态");
-                assertTrue(result.contains("299.00"), "应包含金额");
+                assertEquals(OrderQueryResult.QueryStatus.FOUND, result.queryStatus());
+                assertEquals(OrderQueryResult.PaymentStatus.PAID, result.paymentStatus());
+                assertEquals(OrderQueryResult.FulfillmentStatus.NOT_SHIPPED, result.fulfillmentStatus());
+                assertEquals("运动防汗蓝牙耳机", result.productSummary());
+                assertEquals(new BigDecimal("199.00"), result.orderAmount());
             })
             .verifyComplete();
     }
@@ -27,21 +35,32 @@ class OrderToolsTest {
     @Test
     void queryOrder_shouldHandleUnknownOrder() {
         StepVerifier.create(tools.queryOrder("不存在的订单"))
-            .assertNext(result -> assertTrue(result.contains("未查询到订单")))
+            .assertNext(result -> {
+                assertEquals(OrderQueryResult.QueryStatus.NOT_FOUND, result.queryStatus());
+                assertTrue(result.reasonCodes().contains("ORDER_NOT_FOUND"));
+            })
             .verifyComplete();
     }
 
     @Test
     void queryLogistics_shouldReturnTrace_forKnownOrder() {
         StepVerifier.create(tools.queryLogistics("20260613001"))
-            .assertNext(result -> assertTrue(result.contains("派送中")))
+            .assertNext(result -> {
+                assertEquals(LogisticsQueryResult.QueryStatus.FOUND, result.queryStatus());
+                assertEquals(LogisticsQueryResult.LogisticsStatus.OUT_FOR_DELIVERY, result.logisticsStatus());
+                assertEquals(LogisticsQueryResult.FreshnessStatus.UNKNOWN, result.freshnessStatus());
+                assertTrue(result.events().stream().anyMatch(event -> event.description().contains("派送中")));
+            })
             .verifyComplete();
     }
 
     @Test
     void queryLogistics_shouldHandleUnknownOrder() {
         StepVerifier.create(tools.queryLogistics("9999"))
-            .assertNext(result -> assertTrue(result.contains("未查询到")))
+            .assertNext(result -> {
+                assertEquals(LogisticsQueryResult.QueryStatus.NOT_FOUND, result.queryStatus());
+                assertTrue(result.reasonCodes().contains("LOGISTICS_NOT_FOUND"));
+            })
             .verifyComplete();
     }
 

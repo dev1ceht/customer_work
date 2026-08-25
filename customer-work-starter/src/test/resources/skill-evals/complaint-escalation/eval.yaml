@@ -1,0 +1,26 @@
+schema_version: v1alpha1
+
+environment:
+  type: none
+
+skills:
+  - source: local_path
+    path: .
+    include:
+      - SKILL.md
+      - references/**
+
+engine:
+  name: codex
+
+cases:
+  files:
+    - evals/cases/normal-complaint.yaml
+    - evals/cases/high-risk-complaint.yaml
+    - evals/cases/privacy-boundary.yaml
+  defaults:
+    timeout_seconds: 120
+    max_turns: 6
+
+report:
+  formats: [json]

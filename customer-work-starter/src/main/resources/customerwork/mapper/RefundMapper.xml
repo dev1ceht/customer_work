@@ -10,4 +10,91 @@
         ORDER BY created_at_ms DESC
         LIMIT 1
     </select>
+
+    <!-- 首期不设计部分退款：存在任一活跃全额退款申请时，资格咨询必须转人工。 -->
+    <select id="countEffectiveRefunds" resultType="long">
+        SELECT COUNT(*)
+        FROM cw_refund
+        WHERE order_id = #{orderId}
+          AND type = #{type}
+          AND active_marker = 'ACTIVE'
+    </select>
+
+    <select id="findActiveRefund"
+            resultType="com.richard.fyoung.customerwork.tool.backend.entity.RefundDO">
+        SELECT refund_no, order_id, type, status, application_status, active_marker,
+               user_id, approval_id, idempotency_key, amount, reason, new_spec, created_at_ms,
+               policy_version, risk_level, rule_ids_json, execution_reference,
+               execution_failure_reason, executed_at_ms
+        FROM cw_refund
+        WHERE order_id = #{orderId}
+          AND type = #{type}
+          AND active_marker = 'ACTIVE'
+        ORDER BY created_at_ms DESC
+        LIMIT 1
+    </select>
+
+    <select id="findByIdempotencyKey"
+            resultType="com.richard.fyoung.customerwork.tool.backend.entity.RefundDO">
+        SELECT refund_no, order_id, type, status, application_status, active_marker,
+               user_id, approval_id, idempotency_key, amount, reason, new_spec, created_at_ms,
+               policy_version, risk_level, rule_ids_json, execution_reference,
+               execution_failure_reason, executed_at_ms
+        FROM cw_refund
+        WHERE idempotency_key = #{idempotencyKey}
+          AND active_marker = 'ACTIVE'
+        ORDER BY created_at_ms DESC
+        LIMIT 1
+    </select>
+
+    <select id="findByApprovalId"
+            resultType="com.richard.fyoung.customerwork.tool.backend.entity.RefundDO">
+        SELECT refund_no, order_id, type, status, application_status, active_marker,
+               user_id, approval_id, idempotency_key, amount, reason, new_spec, created_at_ms,
+               policy_version, risk_level, rule_ids_json, execution_reference,
+               execution_failure_reason, executed_at_ms
+        FROM cw_refund
+        WHERE approval_id = #{approvalId}
+        ORDER BY created_at_ms DESC
+        LIMIT 1
+    </select>
+
+    <select id="findLatestRefund"
+            resultType="com.richard.fyoung.customerwork.tool.backend.entity.RefundDO">
+        SELECT refund_no, order_id, type, status, application_status, active_marker,
+               user_id, approval_id, idempotency_key, amount, reason, new_spec, created_at_ms,
+               policy_version, risk_level, rule_ids_json, execution_reference,
+               execution_failure_reason, executed_at_ms
+        FROM cw_refund
+        WHERE order_id = #{orderId} AND type = #{type}
+        ORDER BY created_at_ms DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateDecisionState">
+        UPDATE cw_refund
+        SET application_status = #{applicationStatus},
+            status = #{status},
+            active_marker = #{activeMarker}
+        WHERE refund_no = #{refundNo}
+          AND application_status = #{expectedStatus}
+    </update>
+
+    <update id="updateApprovalId">
+        UPDATE cw_refund
+        SET approval_id = #{approvalId}
+        WHERE refund_no = #{refundNo}
+    </update>
+
+    <update id="updateExecutionState">
+        UPDATE cw_refund
+        SET application_status = #{applicationStatus},
+            status = #{status},
+            active_marker = #{activeMarker},
+            execution_reference = #{executionReference},
+            execution_failure_reason = #{executionFailureReason},
+            executed_at_ms = #{executedAtMs}
+        WHERE refund_no = #{refundNo}
+          AND application_status = #{expectedStatus}
+    </update>
 </mapper>

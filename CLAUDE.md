@@ -412,6 +412,20 @@ mvn -gs scripts/settings-central-direct.xml -s scripts/settings-central-direct.x
 - admin-server 排除了 starter 的自动装配（`spring.autoconfigure.exclude`），需要 starter 能力时在自己的
   `@Configuration` 里显式 new，不要假设容器里有现成 Bean。
 
+## Agent skills
+
+### Issue tracker
+
+PRD 与实施任务使用本地 Markdown，存放在 `.scratch/<feature>/`，不向上游 GitHub 发布。详见 `docs/agents/issue-tracker.md`。
+
+### Triage labels
+
+使用默认标签：`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`。详见 `docs/agents/triage-labels.md`。
+
+### Domain docs
+
+项目采用单一领域上下文：根目录 `CONTEXT.md` 与 `docs/adr/`。详见 `docs/agents/domain.md`。
+
 ## 定时任务（XXL-JOB）约定
 
 - starter：`customer-work.scheduler.xxl-job.*` 配置化，官方 `XxlJobAgentScheduler`（cron 在调度中心配，代码侧只注册 JobHandler）。

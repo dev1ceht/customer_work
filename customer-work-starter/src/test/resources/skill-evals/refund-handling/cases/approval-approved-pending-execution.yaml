@@ -1,0 +1,21 @@
+id: approval-approved-pending-execution
+title: 人工批准但尚未执行退款
+description: 验证 Agent 不把 APPROVED_PENDING_EXECUTION 解释为到账。
+
+input:
+  prompt: |
+    用户询问订单 20260613003 的退款进度。
+    queryRefundProgress(orderId) 返回 queryStatus=FOUND、refundNo=RF-123、
+    applicationStatus=APPROVED_PENDING_EXECUTION、approvalStatus=APPROVED、executionStatus=NOT_APPLICABLE。
+    这表示人工审核已通过，但资金尚未执行。请根据 refund-handling Skill 回复用户，不能说已提交退款申请或退款已到账。
+
+expect:
+  must_contain: ["审核通过", "执行"]
+
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["RF-123"]
+        any: ["等待执行", "尚未执行", "未到账"]
+        not: ["已提交退款申请", "退款已到账", "已为您退款"]

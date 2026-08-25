@@ -36,6 +36,7 @@ class UserAuthWebFilterTest {
     void clearTenantContext() {
         TenantContext.clear();
         QuotaSubjectContext.clear();
+        UserIdentityContext.clear();
     }
 
     private UserJwtService jwtService() {
@@ -146,10 +147,12 @@ class UserAuthWebFilterTest {
         AtomicBoolean reactorContextSeen = new AtomicBoolean(false);
         WebFilterChain chain = ignored -> {
             assertEquals(QuotaSubject.user("U1"), QuotaSubjectContext.get());
+            assertEquals("U1", UserIdentityContext.require().userId());
             threadLocalSeen.set(true);
             return Mono.deferContextual(context -> {
                 assertEquals(QuotaSubject.user("U1"),
                     context.get(QuotaSubjectContextThreadLocalAccessor.KEY));
+                assertEquals("U1", ((UserPrincipal) context.get(UserIdentityContext.KEY)).userId());
                 reactorContextSeen.set(true);
                 return Mono.empty();
             });
